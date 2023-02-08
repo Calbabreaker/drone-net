@@ -77,12 +77,12 @@ def get_closest_point(target_point, points):
 
 def calculate_target(target_point, tracker_points):
     if len(tracker_points) == 0:
-        print("Found no points. Waiting...")
-        return
+        print("Found no points. Staying on previous target.")
+        return target_point
 
     if target_point == None:
         target_point = tracker_points[0]
-        print("No previous point. Picking random point to follow.")
+        print("Picking random point as target.")
     else:
         target_point = get_closest_point(target_point, tracker_points)
     return target_point
