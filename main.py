@@ -1,6 +1,6 @@
 import cv2
-from math import sqrt
 import numpy as np
+from drone import Drone, DETECT_FRAME_INTERVAL, DESCEND_RANGE
 
 class TrackPoint:
     def __init__(self, label, confidence, bbox) -> None:
@@ -22,11 +22,6 @@ class TrackPoint:
         # Draw a bounding box around the animal
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
-DETECT_FRAME_INTERVAL = 30
-TIMES_IN_RANGE_TO_DEPLOY = 4
-DEPLOY_ALTITUDE = 10
-DECEND_RANGE = 200
-
 # Load the pre-trained SSD model
 net = cv2.dnn.readNetFromCaffe("./models/mobilenet-ssd/mobilenet-ssd.prototxt", "./models/mobilenet-ssd/mobilenet-ssd.caffemodel")
 labels = open("./models/mobilenet-ssd/labels.txt", "r").readlines()
@@ -34,8 +29,10 @@ labels = open("./models/mobilenet-ssd/labels.txt", "r").readlines()
 # net = cv2.dnn.readNetFromCaffe("./public/ssd300/deploy.prototxt", "./public/ssd300/VGG_VOC0712Plus_SSD_300x300_ft_iter_160000.caffemodel")
 # labels = open("./public/ssd300/labels.txt", "r").readlines()
 
-video=cv2.VideoCapture("test.webm")
-# video=cv2.VideoCapture(src=0).start()
+# video=cv2.VideoCapture("test.webm")
+video=cv2.VideoCapture(2)
+
+drone = Drone()
 
 def detect(img):
     width = img.shape[1]
@@ -64,62 +61,14 @@ def detect(img):
 
     return tracker_points
 
-def get_distance(center_a, center_b):
-    (x1, y1) = center_a
-    (x2, y2) = center_b
-    return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-def get_closest_point(target_point, points):
-    closest_point = None
-    closest_distance = None
-
-    for point in points:
-        distance = get_distance(target_point.center, point.center)
-        if closest_distance == None or distance < closest_distance:
-            closest_distance = distance
-            closest_point = point
-
-    return closest_point
-
-def deploy_net():
-    print("DEPLOYED")
-    # stop and go back up
-    exit()
-
-def move_drone(target_point, screen_center):
-    if target_point == None:
-        print("Lost target point. Ascending...")
-        return False
-        
-    (tx, ty) = target_point.center
-    (sx, sy) = screen_center
-    altitude = 5
-    # Need to adjust this
-    move_scale = altitude ** 2
-    move_amount = ((tx - sx) * move_scale, (sy - ty) * move_scale)
-    print("Moving drone relatively", move_amount)
-
-    distance = get_distance(target_point.center, screen_center)
-    print("Distance remaning", distance)
-
-    if distance < DECEND_RANGE:
-        # decend down ????
-        print("Within range decending...")
-
-        return altitude < DEPLOY_ALTITUDE
-    else:
-        return False
-
-
 def track_video(video):
     framecount = 0
     tracker_points = []
-    target_point = None
-    times_within_range = 0
 
     while cv2.waitKey(20) != ord('q'):
         # Get frame from video feed
         ok,frame=video.read()
+        frame = cv2.resize(frame, (1080, 720)) 
         if not ok: 
             break
 
@@ -129,46 +78,24 @@ def track_video(video):
         # This can't be done every frame because it is too computationally expensive
         if framecount % DETECT_FRAME_INTERVAL == 0:
             tracker_points = detect(frame)
-
-            if len(tracker_points) == 0:
-                # If we haven't detected any points, reset the target_point so that we can recalibrate
-                target_point = None
-            elif target_point == None:
-                print("Picking random point as target.")
-                target_point = tracker_points[0]
-            else:
-                # Get the closest point to the previous point we're targeting to make sure we're following the same thing (hopefully)
-                target_point = get_closest_point(target_point, tracker_points)
-
-            within_deploy_range = move_drone(target_point, center)
-
-            # If the target_point is within range for x consecutive times, DEPLOY
-            if within_deploy_range:
-                times_within_range += 1
-                print(f"Within deploy range {times_within_range}/{TIMES_IN_RANGE_TO_DEPLOY} times")
-
-                if times_within_range == TIMES_IN_RANGE_TO_DEPLOY:
-                    deploy_net()
-            else:
-                times_within_range = 0
-                
+            drone.control_drone(tracker_points, center)
 
         # Draw all tracker points for debugging
         for point in tracker_points:
             point.draw(frame, (255, 0, 0))
 
-        if target_point != None:
-            target_point.draw(frame, (0, 0, 255))
-
+        if drone.target_point != None:
+            drone.target_point.draw(frame, (0, 0, 255))
 
         # Draw decend/deploy range
-        decend_range_vec = (DECEND_RANGE, DECEND_RANGE)
+        decend_range_vec = (DESCEND_RANGE, DESCEND_RANGE)
         cv2.rectangle(frame, np.subtract(center, decend_range_vec), np.add(center, decend_range_vec), (0, 255, 0), 2)
 
         cv2.imshow("Image", frame)
         framecount += 1
 
-track_video(video)
+if __name__ == "__main__":
+    track_video(video)
 
 # img = cv2.imread("./test2.png")
 # for point in detect(img):
