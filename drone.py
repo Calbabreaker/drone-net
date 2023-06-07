@@ -1,5 +1,5 @@
 import numpy as np
-from math import sqrt
+from math import sqrt, tan
 
 TIMES_IN_RANGE_TO_DEPLOY = 4
 DEPLOY_ALTITUDE = 10
@@ -31,10 +31,27 @@ class Drone:
         (tx, ty) = self.target_point.center
         (sx, sy) = screen_center
         # Need to adjust this
-        move_scale = (self.altitude / 1000) ** 2
-        move_amount = ((tx - sx) * move_scale, (sy - ty) * move_scale)
+        FOV = 90
+
+        # Figure angluar extent for the distance (how much that distance convers in degrees)
+        angle_x = (tx - sx) * (FOV / sx * 2)
+        angle_y = (ty - sy) * (FOV / sy * 2)
+
+        #  a = altitude
+        #  θ = angle
+        #  x = distance to move
+        #  x = a * tan(θ)
+        #
+        #     camera 
+        #      /|
+        #     /θ|
+        #    /  | a
+        #   /___|
+        #     x
+        dist_x = self.altitude * tan(angle_x)
+        dist_y = self.altitude * tan(angle_y)
         print("Moving drone relatively", move_amount)
-        self.move_by(move_amount)
+        self.move_by((dist_x, dist_y))
 
         distance = get_distance(self.target_point.center, screen_center)
         print("Distance remaning", distance)
