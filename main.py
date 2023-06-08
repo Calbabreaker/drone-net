@@ -29,8 +29,8 @@ labels = open("./models/mobilenet-ssd/labels.txt", "r").readlines()
 # net = cv2.dnn.readNetFromCaffe("./public/ssd300/deploy.prototxt", "./public/ssd300/VGG_VOC0712Plus_SSD_300x300_ft_iter_160000.caffemodel")
 # labels = open("./public/ssd300/labels.txt", "r").readlines()
 
-# video=cv2.VideoCapture("test.webm")
-video=cv2.VideoCapture(2)
+video=cv2.VideoCapture("test.webm")
+# video=cv2.VideoCapture(2)
 
 drone = Drone()
 
@@ -68,10 +68,10 @@ def track_video(video):
     while cv2.waitKey(20) != ord('q'):
         # Get frame from video feed
         ok,frame=video.read()
-        frame = cv2.resize(frame, (1080, 720)) 
         if not ok: 
             break
 
+        frame = cv2.resize(frame, (720, 720)) 
         center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
 
         # Every few frames based on DETECT_FRAME_INTERVAL, detect objects with opencv and move the drone

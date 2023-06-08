@@ -4,8 +4,9 @@ from math import sqrt, tan
 TIMES_IN_RANGE_TO_DEPLOY = 4
 DEPLOY_ALTITUDE = 10
 DESCEND_RANGE = 100
-DETECT_FRAME_INTERVAL = 1
+DETECT_FRAME_INTERVAL = 10
 ASCEND_AMOUNT = 10
+CAMERA_FOV = 90
 
 class Drone:
     def __init__(self) -> None:
@@ -20,9 +21,11 @@ class Drone:
 
     def move_by(self, move_delta):
         self.position = np.add(self.position, move_delta)
-        print(f"DRONE: Moving to {self.position}")
+        print(f"DRONE: Moving by {move_delta}")
 
-    def calc_move(self, target_point, screen_center):
+    # Calculates where to move the drone based on target_point
+    # Returns whether the target_point and altitude is in the range
+    def calc_move(self, screen_center):
         if self.target_point == None:
             print("Lost target point. Ascending...")
             self.ascend_by(ASCEND_AMOUNT)
@@ -30,27 +33,24 @@ class Drone:
             
         (tx, ty) = self.target_point.center
         (sx, sy) = screen_center
-        # Need to adjust this
-        FOV = 90
 
         # Figure angluar extent for the distance (how much that distance convers in degrees)
-        angle_x = (tx - sx) * (FOV / sx * 2)
-        angle_y = (ty - sy) * (FOV / sy * 2)
+        angle_x = (tx - sx) * (CAMERA_FOV / (sx * 2))
+        angle_y = (ty - sy) * (CAMERA_FOV / (sy * 2))
 
         #  a = altitude
         #  θ = angle
         #  x = distance to move
-        #  x = a * tan(θ)
+        #  d = a * tan(θ)
         #
         #     camera 
         #      /|
         #     /θ|
         #    /  | a
         #   /___|
-        #     x
+        #     d
         dist_x = self.altitude * tan(angle_x)
         dist_y = self.altitude * tan(angle_y)
-        print("Moving drone relatively", move_amount)
         self.move_by((dist_x, dist_y))
 
         distance = get_distance(self.target_point.center, screen_center)
@@ -76,7 +76,7 @@ class Drone:
             # Get the closest point to the previous point we're targeting to make sure we're following the same thing (hopefully)
             self.target_point = get_closest_point(self.target_point, tracker_points)
 
-        within_deploy_range = self.calc_move(self.target_point, center)
+        within_deploy_range = self.calc_move(center)
 
         # If the target_point is within range for x consecutive times, DEPLOY
         if within_deploy_range:
@@ -84,9 +84,14 @@ class Drone:
             print(f"Within deploy range {self.times_within_range}/{TIMES_IN_RANGE_TO_DEPLOY} times")
 
             if self.times_within_range == TIMES_IN_RANGE_TO_DEPLOY:
-                deploy_net()
+                self.deploy_net()
         else:
             self.times_within_range = 0
+
+    def deploy_net(self):
+        print("DEPLOYED")
+        # stop and go back up
+        exit()
 
 def get_distance(center_a, center_b):
     (x1, y1) = center_a
@@ -104,9 +109,4 @@ def get_closest_point(target_point, points):
             closest_point = point
 
     return closest_point
-
-def deploy_net():
-    print("DEPLOYED")
-    # stop and go back up
-    exit()
 
