@@ -4,20 +4,19 @@ from math import sqrt, tan
 TIMES_IN_RANGE_TO_DEPLOY = 4
 DEPLOY_ALTITUDE = 10
 DESCEND_RANGE = 100
-DETECT_FRAME_INTERVAL = 10
 ASCEND_AMOUNT = 10
-CAMERA_FOV = 90
 
 class Drone:
-    def __init__(self) -> None:
+    def __init__(self, camera_fov: int) -> None:
         self.altitude = 100
         self.position = (100, 100)
         self.target_point = None
         self.times_within_range = 0
+        self.camera_fov = camera_fov
 
     def ascend_by(self, altitude_delta):
         self.altitude += altitude_delta
-        print(f"DRONE: Ascending to {self.altitude}")
+        print(f"DRONE: Altitude changed to {self.altitude}")
 
     def move_by(self, move_delta):
         self.position = np.add(self.position, move_delta)
@@ -35,8 +34,8 @@ class Drone:
         (sx, sy) = screen_center
 
         # Figure angluar extent for the distance (how much that distance convers in degrees)
-        angle_x = (tx - sx) * (CAMERA_FOV / (sx * 2))
-        angle_y = (ty - sy) * (CAMERA_FOV / (sy * 2))
+        angle_x = (tx - sx) * (self.camera_fov / (sx * 2))
+        angle_y = (ty - sy) * (self.camera_fov / (sy * 2))
 
         #  a = altitude
         #  θ = angle
@@ -57,24 +56,27 @@ class Drone:
         print("Distance remaning", distance)
 
         if distance < DESCEND_RANGE:
-            # decend down ????
-            print("Within range decending...")
-            self.ascend_by(-ASCEND_AMOUNT)
+            if self.altitude > DEPLOY_ALTITUDE:
+                print("Within range decending...")
+                self.ascend_by(-ASCEND_AMOUNT)
+            else:
+                return True
 
-            return self.altitude < DEPLOY_ALTITUDE
-        else:
-            return False
+        return False
 
     def control_drone(self, tracker_points, center):
-        if len(tracker_points) == 0:
-            # If we haven't detected any points, reset the target_point so that we can recalibrate
-            self.target_point = None
-        elif self.target_point == None:
-            print("Picking random point as target.")
-            self.target_point = tracker_points[0]
-        else:
-            # Get the closest point to the previous point we're targeting to make sure we're following the same thing (hopefully)
-            self.target_point = get_closest_point(self.target_point, tracker_points)
+        # if len(tracker_points) == 0:
+        #     # If we haven't detected any points, reset the target_point so that we can recalibrate
+        #     self.target_point = None
+        # elif self.target_point == None:
+        #     print("Picking random point as target.")
+        #     self.target_point = tracker_points[0]
+        # else:
+        #     # Get the closest point to the previous point we're targeting to make sure we're following the same thing (hopefully)
+        #     self.target_point = get_closest_point(self.target_point, tracker_points)
+
+        # Gets the closest point to the center
+        self.target_point = get_closest_point(center, tracker_points)
 
         within_deploy_range = self.calc_move(center)
 
@@ -98,12 +100,15 @@ def get_distance(center_a, center_b):
     (x2, y2) = center_b
     return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-def get_closest_point(target_point, points):
+def get_closest_point(position, points):
     closest_point = None
     closest_distance = None
 
     for point in points:
-        distance = get_distance(target_point.center, point.center)
+        if not point.is_valid:
+            continue
+
+        distance = get_distance(position, point.center)
         if closest_distance == None or distance < closest_distance:
             closest_distance = distance
             closest_point = point
