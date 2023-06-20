@@ -3,11 +3,11 @@ import numpy as np
 from drone import Drone, DESCEND_RANGE
 import argparse
 
-parser = argparse.ArgumentParser(description="Drone net animal tracker")
+parser = argparse.ArgumentParser(description="Drone controller for detecting animals and dropping nets on them")
 parser.add_argument("--fov", type=int, default=90,
                     help="The vertical FOV of the camera")
 parser.add_argument("--blob-size", type=int, default=300,
-                    help="How big the image that will be fed neural network is (higher is more accurate but slower)")
+                    help="How big the image that will be fed neural network will be (higher is more accurate but slower)")
 parser.add_argument("--interval", type=int, default=10,
                     help="How often the to detect objects in the video feed (in number of frames)")
 parser.add_argument("--min-confidence", type=float, default=0.3,
@@ -15,7 +15,7 @@ parser.add_argument("--min-confidence", type=float, default=0.3,
 parser.add_argument("--visualize", action=argparse.BooleanOptionalAction,
                     help="Whether or not to visualize the tracking points")
 parser.add_argument("--video", required=True,
-                    help="The index of the video camera (/dev/videoX) or video file")
+                    help="The index of the video camera (/dev/videoX) or a video file")
 args = parser.parse_args()
 
 TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person" }
@@ -122,7 +122,7 @@ def visualize_points(frame, tracker_points, center):
 
     # Draw decend/deploy range
     decend_range_vec = (DESCEND_RANGE, DESCEND_RANGE)
-    cv2.rectangle(frame, np.subtract(center, decend_range_vec), np.add(center, decend_range_vec), (0, 255, 0), 2)
+    cv2.circle(frame, center, DESCEND_RANGE, color=(0, 255, 0), thickness=2)
 
     cv2.imshow("Image", frame)
 

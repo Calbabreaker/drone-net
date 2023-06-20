@@ -2,23 +2,26 @@ import numpy as np
 from math import sqrt, tan
 
 TIMES_IN_RANGE_TO_DEPLOY = 4
-DEPLOY_ALTITUDE = 10
-DESCEND_RANGE = 100
-ASCEND_AMOUNT = 10
+DEPLOY_ALTITUDE = 2
+DESCEND_RANGE = 75
+ASCEND_AMOUNT = 1
+MAX_ALTITUDE = 50
 
 class Drone:
     def __init__(self, camera_fov: int) -> None:
-        self.altitude = 100
+        self.altitude = 30
         self.position = (100, 100)
         self.target_point = None
         self.times_within_range = 0
         self.camera_fov = camera_fov
 
     def ascend_by(self, altitude_delta):
-        self.altitude += altitude_delta
+        # TODO: change with actual move function
+        self.altitude = min(self.altitude + altitude_delta, MAX_ALTITUDE)
         print(f"DRONE: Altitude changed to {self.altitude}")
 
     def move_by(self, move_delta):
+        # TODO: change with actual move function
         self.position = np.add(self.position, move_delta)
         print(f"DRONE: Moving by {move_delta}")
 
@@ -114,4 +117,3 @@ def get_closest_point(position, points):
             closest_point = point
 
     return closest_point
-
