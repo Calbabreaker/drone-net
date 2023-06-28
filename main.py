@@ -1,7 +1,7 @@
-import cv2
-import numpy as np
 from drone import Drone 
 import argparse
+import cv2
+import numpy as np
 
 parser = argparse.ArgumentParser(description="Drone controller for detecting animals and dropping nets on them.")
 parser.add_argument("--fov", type=int, default=90,

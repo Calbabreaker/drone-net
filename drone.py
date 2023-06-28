@@ -1,10 +1,18 @@
-import numpy as np
 from math import sqrt, tan
+import numpy as np
+import time
 
-TIMES_IN_RANGE_TO_DEPLOY = 4
-DEPLOY_ALTITUDE = 2
+try:
+    from gpiozero import AngularServo
+    servo = AngularServo(18, min_pulse_width=0.0006, max_pulse_width=0.0023)
+except ImportError:
+    pass
+
+
 ASCEND_AMOUNT = 1
+DEPLOY_ALTITUDE = 2
 MAX_ALTITUDE = 50
+TIMES_IN_RANGE_TO_DEPLOY = 4
 
 class Drone:
     def __init__(self, args) -> None:
@@ -95,7 +103,8 @@ class Drone:
 
     def deploy_net(self):
         print("DEPLOYED")
-        # stop and go back up
+        servo.angle = 90
+        time.sleep(1)
         exit()
 
 def get_distance(center_a, center_b):
