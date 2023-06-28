@@ -1,13 +1,7 @@
 from math import sqrt, tan
 import numpy as np
-import time
-
-try:
-    from gpiozero import AngularServo
-    servo = AngularServo(18, min_pulse_width=0.0006, max_pulse_width=0.0023)
-except ImportError:
-    pass
-
+import sys
+import subprocess
 
 ASCEND_AMOUNT = 0.2
 DESCEND_AMOUNT = 0.5
@@ -22,6 +16,7 @@ class Drone:
         self.target_point = None
         self.times_within_range = 0
         self.args = args
+        self.deploy_net()
 
     def ascend_by(self, altitude_delta):
         # TODO: change with actual move function
@@ -103,9 +98,7 @@ class Drone:
             self.times_within_range = 0
 
     def deploy_net(self):
-        print("DEPLOYED")
-        servo.angle = 90
-        time.sleep(1)
+        subprocess.Popen([sys.executable, "deploy.py", str(self.args.servo_pin)], start_new_session=True)
         exit()
 
 def get_distance(center_a, center_b):

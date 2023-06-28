@@ -18,6 +18,8 @@ parser.add_argument("--video", required=True,
                     help="The index of the video camera (/dev/videoX) or a video file.")
 parser.add_argument("--video-height", type=int, 
                     help="The height the input video feed should be resized to. This mostly improves performance with --visualize. Use --blob_size instead.")
+parser.add_argument("--servo-pin", type=int, required=True,
+                    help="The pin of the servo(s) used for deploying.")
 parser.add_argument("--descend-range-div", type=float, default=3,
                     help="The range calculated by dividing the screen width/height (whatever is smaller) that will make the drone descend/deploy if points move within.")
 args = parser.parse_args()
