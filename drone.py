@@ -9,7 +9,8 @@ except ImportError:
     pass
 
 
-ASCEND_AMOUNT = 1
+ASCEND_AMOUNT = 0.2
+DESCEND_AMOUNT = 0.5
 DEPLOY_ALTITUDE = 2
 MAX_ALTITUDE = 50
 TIMES_IN_RANGE_TO_DEPLOY = 4
@@ -69,7 +70,7 @@ class Drone:
         if distance < (width / self.args.descend_range_div):
             if self.altitude > DEPLOY_ALTITUDE:
                 print("Within range decending...")
-                self.ascend_by(-ASCEND_AMOUNT)
+                self.ascend_by(-DESCEND_AMOUNT)
             else:
                 return True
 
