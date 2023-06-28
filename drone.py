@@ -11,12 +11,11 @@ TIMES_IN_RANGE_TO_DEPLOY = 4
 
 class Drone:
     def __init__(self, args) -> None:
-        self.altitude = 30
+        self.altitude = 4
         self.position = (100, 100)
         self.target_point = None
         self.times_within_range = 0
         self.args = args
-        self.deploy_net()
 
     def ascend_by(self, altitude_delta):
         # TODO: change with actual move function
