@@ -1,21 +1,25 @@
 import cv2
 import numpy as np
-from drone import Drone, DESCEND_RANGE
+from drone import Drone 
 import argparse
 
-parser = argparse.ArgumentParser(description="Drone controller for detecting animals and dropping nets on them")
+parser = argparse.ArgumentParser(description="Drone controller for detecting animals and dropping nets on them.")
 parser.add_argument("--fov", type=int, default=90,
                     help="The vertical FOV of the camera")
 parser.add_argument("--blob-size", type=int, default=300,
-                    help="How big the image that will be fed neural network will be (higher is more accurate but slower)")
+                    help="How big the image that will be fed neural network will be (higher is more accurate but slower).")
 parser.add_argument("--interval", type=int, default=10,
-                    help="How often the to detect objects in the video feed (in number of frames)")
+                    help="How often the to detect objects in the video feed (in number of frames).")
 parser.add_argument("--min-confidence", type=float, default=0.3,
-                    help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1)")
+                    help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1).")
 parser.add_argument("--visualize", action=argparse.BooleanOptionalAction,
-                    help="Whether or not to visualize the tracking points")
+                    help="Whether or not to visualize the tracking points.")
 parser.add_argument("--video", required=True,
-                    help="The index of the video camera (/dev/videoX) or a video file")
+                    help="The index of the video camera (/dev/videoX) or a video file.")
+parser.add_argument("--video-height", type=int, 
+                    help="The height the input video feed should be resized to. This mostly improves performance with --visualize. Use --blob_size instead.")
+parser.add_argument("--descend-range-div", type=float, default=3,
+                    help="The range calculated by dividing the screen width/height (whatever is smaller) that will make the drone descend/deploy if points move within.")
 args = parser.parse_args()
 
 TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person" }
@@ -58,7 +62,7 @@ with open('./models/mobilenet-ssd/labels.txt') as file:
 video_path = int(args.video) if args.video.isdigit() else args.video
 video=cv2.VideoCapture(video_path)
 
-drone = Drone(args.fov)
+drone = Drone(args)
 
 def detect(img):
     width = img.shape[1]
@@ -97,8 +101,13 @@ def track_video(video):
         if not ok: 
             break
 
-        # aspect_ratio = frame.shape[1] / frame.shape[0]
-        # frame = cv2.resize(frame, (int(args.height * aspect_ratio), args.height)) 
+        # If specified, resize the input camera feed while keeping the aspect ratio
+        # Improves performance slightly
+        if args.video_height:
+            aspect_ratio = frame.shape[1] / frame.shape[0]
+            frame = cv2.resize(frame, (int(args.video_height * aspect_ratio), args.video_height)) 
+
+        # frame.shape[1] = width, frame.shape[0] = height 
         center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
 
         # Every few frames based on DETECT_FRAME_INTERVAL, detect objects with opencv and move the drone
@@ -121,8 +130,8 @@ def visualize_points(frame, tracker_points, center):
         drone.target_point.draw(frame, (0, 0, 255))
 
     # Draw decend/deploy range
-    decend_range_vec = (DESCEND_RANGE, DESCEND_RANGE)
-    cv2.circle(frame, center, DESCEND_RANGE, color=(0, 255, 0), thickness=2)
+    size = min(frame.shape[1], frame.shape[0])
+    cv2.circle(frame, center, int(size / args.descend_range_div), color=(0, 255, 0), thickness=2)
 
     cv2.imshow("Image", frame)
 

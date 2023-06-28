@@ -3,17 +3,16 @@ from math import sqrt, tan
 
 TIMES_IN_RANGE_TO_DEPLOY = 4
 DEPLOY_ALTITUDE = 2
-DESCEND_RANGE = 75
 ASCEND_AMOUNT = 1
 MAX_ALTITUDE = 50
 
 class Drone:
-    def __init__(self, camera_fov: int) -> None:
+    def __init__(self, args) -> None:
         self.altitude = 30
         self.position = (100, 100)
         self.target_point = None
         self.times_within_range = 0
-        self.camera_fov = camera_fov
+        self.args = args
 
     def ascend_by(self, altitude_delta):
         # TODO: change with actual move function
@@ -35,10 +34,11 @@ class Drone:
             
         (tx, ty) = self.target_point.center
         (sx, sy) = screen_center
+        (width, height) = np.multiply(screen_center, 2)
 
         # Figure angluar extent for the distance (how much that distance convers in degrees)
-        angle_x = (tx - sx) * (self.camera_fov / (sx * 2))
-        angle_y = (ty - sy) * (self.camera_fov / (sy * 2))
+        angle_x = (tx - sx) * (self.args.fov / (width))
+        angle_y = (ty - sy) * (self.args.fov / (height))
 
         #  a = altitude
         #  θ = angle
@@ -58,7 +58,7 @@ class Drone:
         distance = get_distance(self.target_point.center, screen_center)
         print("Distance remaning", distance)
 
-        if distance < DESCEND_RANGE:
+        if distance < (width / self.args.descend_range_div):
             if self.altitude > DEPLOY_ALTITUDE:
                 print("Within range decending...")
                 self.ascend_by(-ASCEND_AMOUNT)
