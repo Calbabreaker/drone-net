@@ -40,7 +40,7 @@ class TrackPoint:
         (x1, y1, x2, y2) = self.bbox
 
         if not self.is_valid:
-            color = (50, 0, 0)
+            color = (0, 0, 0)
 
         # Add a text label to the image
         label = f"{self.label}: {self.confidence:.2f}"
@@ -109,7 +109,7 @@ def track_video(video):
             aspect_ratio = frame.shape[1] / frame.shape[0]
             frame = cv2.resize(frame, (int(args.video_height * aspect_ratio), args.video_height)) 
 
-        # frame.shape[1] = width, frame.shape[0] = height 
+        # frame.shape[1] is width, frame.shape[0] is height 
         center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
 
         # Every few frames based on DETECT_FRAME_INTERVAL, detect objects with opencv and move the drone
@@ -119,11 +119,11 @@ def track_video(video):
             drone.control_drone(tracker_points, center)
 
         if args.visualize:
-            visualize_points(frame, tracker_points, center)
+            visualize_points(frame, center, tracker_points, drone)
 
         framecount += 1
 
-def visualize_points(frame, tracker_points, center):
+def visualize_points(frame, center, tracker_points, drone):
     # Draw all tracker points for debugging
     for point in tracker_points:
         point.draw(frame, (255, 0, 0))
@@ -132,8 +132,8 @@ def visualize_points(frame, tracker_points, center):
         drone.target_point.draw(frame, (0, 0, 255))
 
     # Draw decend/deploy range
-    size = min(frame.shape[1], frame.shape[0])
-    cv2.circle(frame, center, int(size / args.descend_range_div), color=(0, 255, 0), thickness=2)
+    descend_range_size = drone.get_descend_range_size(frame.shape[1],frame.shape[0])
+    cv2.circle(frame, center, descend_range_size, color=(0, 255, 0), thickness=2)
 
     cv2.imshow("Image", frame)
 

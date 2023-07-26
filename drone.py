@@ -45,8 +45,7 @@ class Drone:
 
         #  a = altitude
         #  θ = angle
-        #  x = distance to move
-        #  d = a * tan(θ)
+        #  d = a * tan(θ) (distance to move)
         #
         #     camera 
         #      /|
@@ -61,7 +60,7 @@ class Drone:
         distance = get_distance(self.target_point.center, screen_center)
         print("Distance remaning", distance)
 
-        if distance < (width / self.args.descend_range_div):
+        if distance < self.get_descend_range_size(width, height):
             if self.altitude > DEPLOY_ALTITUDE:
                 print("Within range decending...")
                 self.ascend_by(-DESCEND_AMOUNT)
@@ -95,6 +94,10 @@ class Drone:
                 self.deploy_net()
         else:
             self.times_within_range = 0
+
+    def get_descend_range_size(self, width, height):
+        size = min(width, height)
+        return int(size / self.args.descend_range_div)
 
     def deploy_net(self):
         subprocess.Popen([sys.executable, "deploy.py", str(self.args.servo_pin)], start_new_session=True)
