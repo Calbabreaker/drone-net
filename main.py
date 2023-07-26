@@ -22,6 +22,12 @@ parser.add_argument("--servo-pin", type=int, required=True,
                     help="The pin of the servo(s) used for deploying.")
 parser.add_argument("--descend-range-div", type=float, default=3,
                     help="The range calculated by dividing the screen width/height (whatever is smaller) that will make the drone descend/deploy if points move within.")
+parser.add_argument("--deploy-altitude", type=float, default=5,
+                    help="The altitude in feet where the drone will stop descending and be able to deploy the net")
+parser.add_argument("--max-altitude", type=float, default=100,
+                    help="The maxium and takeoff altitude of the drone")
+parser.add_argument("--address", type=str, default="127.0.0.1:14550",
+                    help="Address for drone connection")
 args = parser.parse_args()
 
 TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person" }

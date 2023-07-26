@@ -1,31 +1,99 @@
-from math import sqrt, tan
+import math
 import numpy as np
 import sys
+import time
 import subprocess
+import dronekit
 
+# Altitude is in feet
 ASCEND_AMOUNT = 0.2
 DESCEND_AMOUNT = 0.5
-DEPLOY_ALTITUDE = 2
-MAX_ALTITUDE = 50
 TIMES_IN_RANGE_TO_DEPLOY = 4
+
+# Radius of the Earth in meters
+EARTH_RADIUS = 6378137.0
+
 
 class Drone:
     def __init__(self, args) -> None:
-        self.altitude = 4
-        self.position = (100, 100)
         self.target_point = None
         self.times_within_range = 0
         self.args = args
 
+        self.vehicle = dronekit.connect(args.address)
+        print(f"Connected to {args.address}")
+
+        if self.vehicle.mode.name != "GUIDED":
+            self.takeoff()
+
+    def takeoff(self):
+        while not self.vehicle.is_armable:
+            print("Waiting for vehicle to initialize...")
+            time.sleep(1)
+
+        # Arm the vehicle and takeoff
+        self.vehicle.mode = dronekit.VehicleMode("GUIDED")
+        self.vehicle.armed = True
+
+        while not self.vehicle.armed or not self.vehicle.mode.name == "GUIDED":
+            print("Waiting for vehicle to be armed...")
+            time.sleep(1)
+
+        self.vehicle.simple_takeoff(self.args.max_altitude)
+        print("Starting to ascend.")
+
+        while self.get_altitude() < self.args.max_altitude:
+            print(f"Waiting to reach altitude... (Alitude: {self.get_altitude()}/{self.args.max_altitude}ft)")
+            time.sleep(1)
+
+        print("Target altitude reached!!")
+
+
+    def land(self):
+        # Set the vehicle to start landing
+        self.vehicle.mode = dronekit.VehicleMode('LAND')
+        while not self.vehicle.mode =="LAND":
+            print("Waiting for drone to enter LAND mode.")
+            time.sleep(1)
+
+        # Wait until near ground
+        while self.get_altitude() > 1:
+            print(f"Waiting for vehicle to land... (Altitude: {self.get_altitude()}ft)")
+            time.sleep(1)
+
+        # Disarm the vehicle to complete the landing process
+        self.vehicle.armed = False
+        print("Drone has landed and disarmed.")
+
+    def get_altitude(self):
+        return self.vehicle.location.global_relative_frame.alt
+
+    def get_lat_lon(self):
+        position = self.vehicle.location.global_relative_frame
+        return (position.lat, position.lon)
+
     def ascend_by(self, altitude_delta):
         # TODO: change with actual move function
-        self.altitude = min(self.altitude + altitude_delta, MAX_ALTITUDE)
-        print(f"DRONE: Altitude changed to {self.altitude}")
+        print(f"DRONE: Altitude changing to {self.get_altitude()}")
+        (lat, lon) = self.get_lat_lon()
+        target_altitude = min(self.get_altitude() + altitude_delta, self.args.max_altitude)
+        target_position = dronekit.LocationGlobalRelative(lat, lon, target_altitude)
+        self.vehicle.simple_goto(target_position)
 
-    def move_by(self, move_delta):
-        # TODO: change with actual move function
-        self.position = np.add(self.position, move_delta)
-        print(f"DRONE: Moving by {move_delta}")
+    # Move drone to the target location x meters ahead of the current position
+    def move_by(self, north_dist, east_dist):
+        print(f"DRONE: Moving by {(north_dist, east_dist)}")
+        (lat, lon) = self.get_lat_lon()
+        lat_dist = north_dist / EARTH_RADIUS
+
+        lon_radius = EARTH_RADIUS * math.cos(math.radians(lat)) # Longitude based on latitude
+        lon_dist = east_dist / lon_radius 
+
+        # Calculate new position in decimal degrees
+        new_lat = lat + math.degrees(lat_dist)
+        new_lon = lon + math.degrees(lon_dist)
+        target_position =  dronekit.LocationGlobalRelative(new_lat, new_lon, self.get_altitude())
+        self.vehicle.simple_goto(target_position)
 
     # Calculates where to move the drone based on target_point
     # Returns whether the target_point and altitude is in the range
@@ -53,15 +121,15 @@ class Drone:
         #    /  | a
         #   /___|
         #     d
-        dist_x = self.altitude * tan(angle_x)
-        dist_y = self.altitude * tan(angle_y)
-        self.move_by((dist_x, dist_y))
+        dist_x = self.get_altitude() * math.tan(angle_x)
+        dist_y = self.get_altitude() * math.tan(angle_y)
+        self.move_by(dist_y, dist_x)
 
         distance = get_distance(self.target_point.center, screen_center)
         print("Distance remaning", distance)
 
         if distance < self.get_descend_range_size(width, height):
-            if self.altitude > DEPLOY_ALTITUDE:
+            if self.get_altitude() < self.args.deploy_altitude:
                 print("Within range decending...")
                 self.ascend_by(-DESCEND_AMOUNT)
             else:
@@ -106,7 +174,7 @@ class Drone:
 def get_distance(center_a, center_b):
     (x1, y1) = center_a
     (x2, y2) = center_b
-    return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 def get_closest_point(position, points):
     closest_point = None
