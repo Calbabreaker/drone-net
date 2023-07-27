@@ -3,13 +3,14 @@ import argparse
 import cv2
 import time
 import numpy as np
+import threading
 
 parser = argparse.ArgumentParser(description="Drone controller for detecting animals and dropping nets on them.")
 parser.add_argument("--fov", type=int, default=80,
                     help="The vertical FOV of the camera")
-parser.add_argument("--blob-size", type=int, default=300,
+parser.add_argument("--blob-size", type=int, default=500,
                     help="How big the image that will be fed neural network will be (higher is more accurate but slower).")
-parser.add_argument("--interval", type=float, default=1,
+parser.add_argument("--interval", type=float, default=2,
                     help="How often the to detect objects in the video feed in seconds.")
 parser.add_argument("--min-confidence", type=float, default=0.3,
                     help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1).")
@@ -17,23 +18,25 @@ parser.add_argument("--visualize", action=argparse.BooleanOptionalAction,
                     help="Whether or not to visualize the tracking points.")
 parser.add_argument("--video", required=True,
                     help="The index of the video camera (/dev/videoX) or a video file.")
-parser.add_argument("--video-height", type=int, 
-                    help="The height the input video feed should be resized to. This mostly improves performance with --visualize. Use --blob_size instead.")
 parser.add_argument("--servo-pin", type=int, required=True,
                     help="The pin of the servo(s) used for deploying.")
-parser.add_argument("--descend-range-div", type=float, default=4,
+parser.add_argument("--descend-range-div", type=float, default=6,
                     help="The range calculated by dividing the screen width/height (whatever is smaller) that will make the drone descend/deploy if points move within.")
-parser.add_argument("--deploy-altitude", type=float, default=5,
+parser.add_argument("--deploy-altitude", type=float, default=10,
                     help="The altitude in meters where the drone will stop descending and be able to deploy the net")
-parser.add_argument("--max-altitude", type=float, default=50,
+parser.add_argument("--max-altitude", type=float, default=40,
                     help="The maxium and takeoff altitude of the drone")
 parser.add_argument("--address", type=str, default="127.0.0.1:14550",
                     help="Address for drone connection")
-parser.add_argument("--deploy-ready-time", type=float, default=2,
+parser.add_argument("--ascend-amount", type=float, default=1,
+                    help="How much to ascend each time the program loses the tracker point in meters.")
+parser.add_argument("--descend-amount", type=float, default=4,
+                    help="How much to descend each time the tracker point goes inside the descend/deploy range.")
+parser.add_argument("--deploy-ready-time", type=float, default=1,
                     help="Amount of time needed in seconds for the drone in the state where it should deploy before deploying.")
 args = parser.parse_args()
 
-TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person" }
+TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person", "bottle" }
 
 class TrackPoint:
     def __init__(self, label, confidence, bbox) -> None:
@@ -73,7 +76,9 @@ with open('./models/mobilenet-ssd/labels.txt') as file:
 video_path = int(args.video) if args.video.isdigit() else args.video
 video=cv2.VideoCapture(video_path)
 
-drone = Drone(args)
+def get_center(frame):
+    # frame.shape[1] is width, frame.shape[0] is height 
+    return (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
 
 def detect(img):
     width = img.shape[1]
@@ -102,9 +107,30 @@ def detect(img):
 
     return tracker_points
 
+current_frame = None
+tracker_points = []
+drone = Drone(args)
+
+def track_thread():
+    global current_frame
+    global tracker_points
+
+    drone.start()
+    time.sleep(0.1)
+
+    while not current_frame is None:
+        center = get_center(current_frame)
+        tracker_points = detect(current_frame)
+        drone.control_drone(tracker_points, center)
+        time.sleep(args.interval)
+
 def track_video(video):
-    tracker_points = []
-    last_detect_time = 0
+    global current_frame
+    global tracker_points
+
+    # We need a different since the drone movement uses time.sleep
+    thread = threading.Thread(target=track_thread)
+    thread.start()
 
     while cv2.waitKey(20) != ord('q'):
         # Get frame from video feed
@@ -112,26 +138,15 @@ def track_video(video):
         if not ok: 
             break
 
-        # If specified, resize the input camera feed while keeping the aspect ratio
-        # Improves performance slightly
-        if args.video_height:
-            aspect_ratio = frame.shape[1] / frame.shape[0]
-            frame = cv2.resize(frame, (int(args.video_height * aspect_ratio), args.video_height)) 
-
-        # frame.shape[1] is width, frame.shape[0] is height 
-        center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
-
-        # Every few seconds based on args.interval, detect objects with opencv and move the drone
-        # This can't be done every frame because it is too computationally expensive
-        if time.time() - last_detect_time > args.interval:
-            tracker_points = detect(frame)
-            drone.control_drone(tracker_points, center)
-            last_detect_time = time.time()
+        current_frame = frame
 
         if args.visualize:
-            visualize_points(frame, center, tracker_points, drone)
+            visualize_points(frame)
 
-def visualize_points(frame, center, tracker_points, drone):
+    current_frame = None
+    thread.join()
+
+def visualize_points(frame):
     # Draw all tracker points for debugging
     for point in tracker_points:
         point.draw(frame, (255, 0, 0))
@@ -140,8 +155,9 @@ def visualize_points(frame, center, tracker_points, drone):
         drone.target_point.draw(frame, (0, 0, 255))
 
     # Draw decend/deploy range
+    center = get_center(frame)
     descend_range_size = drone.get_descend_range_size(frame.shape[1],frame.shape[0])
-    cv2.circle(frame, center, descend_range_size, color=(0, 255, 0), thickness=2)
+    cv2.circle(frame, center, descend_range_size, color=(0, 255 if drone.is_facing_down() else 80, 0), thickness=2)
 
     cv2.imshow("Image", frame)
 
