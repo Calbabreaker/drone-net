@@ -1,2 +1,3 @@
 dronekit
 opencv-python
+gpiozero

@@ -1,15 +1,16 @@
 from drone import Drone 
 import argparse
 import cv2
+import time
 import numpy as np
 
 parser = argparse.ArgumentParser(description="Drone controller for detecting animals and dropping nets on them.")
-parser.add_argument("--fov", type=int, default=90,
+parser.add_argument("--fov", type=int, default=80,
                     help="The vertical FOV of the camera")
 parser.add_argument("--blob-size", type=int, default=300,
                     help="How big the image that will be fed neural network will be (higher is more accurate but slower).")
-parser.add_argument("--interval", type=int, default=10,
-                    help="How often the to detect objects in the video feed (in number of frames).")
+parser.add_argument("--interval", type=float, default=1,
+                    help="How often the to detect objects in the video feed in seconds.")
 parser.add_argument("--min-confidence", type=float, default=0.3,
                     help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1).")
 parser.add_argument("--visualize", action=argparse.BooleanOptionalAction,
@@ -20,14 +21,16 @@ parser.add_argument("--video-height", type=int,
                     help="The height the input video feed should be resized to. This mostly improves performance with --visualize. Use --blob_size instead.")
 parser.add_argument("--servo-pin", type=int, required=True,
                     help="The pin of the servo(s) used for deploying.")
-parser.add_argument("--descend-range-div", type=float, default=3,
+parser.add_argument("--descend-range-div", type=float, default=4,
                     help="The range calculated by dividing the screen width/height (whatever is smaller) that will make the drone descend/deploy if points move within.")
 parser.add_argument("--deploy-altitude", type=float, default=5,
-                    help="The altitude in feet where the drone will stop descending and be able to deploy the net")
-parser.add_argument("--max-altitude", type=float, default=100,
+                    help="The altitude in meters where the drone will stop descending and be able to deploy the net")
+parser.add_argument("--max-altitude", type=float, default=50,
                     help="The maxium and takeoff altitude of the drone")
 parser.add_argument("--address", type=str, default="127.0.0.1:14550",
                     help="Address for drone connection")
+parser.add_argument("--deploy-ready-time", type=float, default=2,
+                    help="Amount of time needed in seconds for the drone in the state where it should deploy before deploying.")
 args = parser.parse_args()
 
 TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person" }
@@ -100,8 +103,8 @@ def detect(img):
     return tracker_points
 
 def track_video(video):
-    framecount = 0
     tracker_points = []
+    last_detect_time = 0
 
     while cv2.waitKey(20) != ord('q'):
         # Get frame from video feed
@@ -118,16 +121,15 @@ def track_video(video):
         # frame.shape[1] is width, frame.shape[0] is height 
         center = (int(frame.shape[1] / 2), int(frame.shape[0] / 2))
 
-        # Every few frames based on DETECT_FRAME_INTERVAL, detect objects with opencv and move the drone
+        # Every few seconds based on args.interval, detect objects with opencv and move the drone
         # This can't be done every frame because it is too computationally expensive
-        if framecount % args.interval == 0:
+        if time.time() - last_detect_time > args.interval:
             tracker_points = detect(frame)
             drone.control_drone(tracker_points, center)
+            last_detect_time = time.time()
 
         if args.visualize:
             visualize_points(frame, center, tracker_points, drone)
-
-        framecount += 1
 
 def visualize_points(frame, center, tracker_points, drone):
     # Draw all tracker points for debugging
