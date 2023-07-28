@@ -47,20 +47,6 @@ class Drone:
         self.vehicle.simple_takeoff(self.args.max_altitude)
         print("INFO: Starting to takeoff...")
 
-    def land(self):
-        # Set the vehicle to start landing
-        self.vehicle.mode = dronekit.VehicleMode('LAND')
-        while not self.vehicle.mode =="LAND":
-            print("INFO: Waiting for drone to enter LAND mode.")
-            time.sleep(1)
-
-        self.wait_reach_alitude(2, False)
-        self.reset_target_position()
-
-        # Disarm the vehicle to complete the landing process
-        self.vehicle.armed = False
-        print("INFO: Drone has landed and disarmed.")
-
     def wait_reach_alitude(self, target_altitude, is_ascent):
         while True:
             if is_ascent and self.get_altitude() > target_altitude * 0.99:
@@ -83,15 +69,17 @@ class Drone:
 
     def is_facing_down(self):
         try:
-            return abs(self.vehicle.attitude.roll) < 0.005 and abs(self.vehicle.attitude.pitch or 0) < 0.005
+            return abs(self.vehicle.attitude.roll) < 0.01 and abs(self.vehicle.attitude.pitch) < 0.01
         except TypeError:
             return False
 
     # Move the drone to specified altitude
-    # Set the wait_ascend to true (ascending) or false (descending) to wait until the drone has reached the alittude
-    def set_altitude(self, target_altitude):
+    def set_altitude(self, target_altitude, force=False):
+        if not self.is_facing_down() and not force:
+            return
+
         self.target_position.alt = np.clip(float(target_altitude), self.args.deploy_altitude, self.args.max_altitude)
-        print(f"TRACE: Altitude changing to {self.target_position.alt}")
+        print(f"TRACE: Altitude changing to {self.target_position.alt}m")
         self.vehicle.simple_goto(self.target_position)
 
     # Move drone to the target location x meters ahead of the current position
@@ -109,7 +97,7 @@ class Drone:
         # Convert meters to Earth coordinates
         (lat, lon) = self.get_lat_lon()
         lat_dist = -y_dist / EARTH_RADIUS
-        lon_dist = x_dist / EARTH_RADIUS * math.cos(math.radians(lat)) # Longitude based on latitude 
+        lon_dist =  x_dist / EARTH_RADIUS * math.cos(math.radians(lat)) # Longitude based on latitude 
 
         # Calculate new position in decimal degrees
         self.target_position.lat = lat + math.degrees(lat_dist)
@@ -117,7 +105,7 @@ class Drone:
         self.vehicle.simple_goto(self.target_position)
 
     # Calculates where to move the drone based on target_point
-    # Returns whether the target_point and altitude is in the range
+    # Returns whether the target_point and altitude is in the deploy range
     def calc_move(self, screen_center):
         if self.target_point == None:
             print("WARN: Lost target point. Ascending...")
@@ -130,7 +118,7 @@ class Drone:
 
         # Figure angluar extent for the distance (how much that distance convers in degrees)
         angle_x = (tx - sx) * (self.args.fov / 2 / width)
-        angle_y = (ty - sy) * (self.args.fov / 2/ height)
+        angle_y = (ty - sy) * (self.args.fov / 2 / height)
 
         #  a = altitude
         #  θ = angle
@@ -148,7 +136,7 @@ class Drone:
 
         distance = get_distance(self.target_point.center, screen_center)
 
-        if distance < self.get_descend_range_size(width, height):
+        if distance < self.get_descend_range_size(width, height) and self.is_facing_down():
             if self.get_altitude() > self.args.deploy_altitude * 1.1:
                 print("INFO: Within range decending...")
                 self.set_altitude(self.get_altitude() - self.args.descend_amount)
@@ -158,22 +146,12 @@ class Drone:
         return False
 
     def control_drone(self, tracker_points, center):
-        # if len(tracker_points) == 0:
-        #     # If we haven't detected any points, reset the target_point so that we can recalibrate
-        #     self.target_point = None
-        # elif self.target_point == None:
-        #     print("Picking random point as target.")
-        #     self.target_point = tracker_points[0]
-        # else:
-        #     # Get the closest point to the previous point we're targeting to make sure we're following the same thing (hopefully)
-        #     self.target_point = get_closest_point(self.target_point, tracker_points)
-
         # Gets the closest point to the center
         self.target_point = get_closest_point(center, tracker_points)
 
         ready_to_deploy = self.calc_move(center)
 
-        # If the target_point is within range for x consecutive times, DEPLOY
+        # If the target_point is within range for a number of consecutive seconds, DEPLOY
         # TODO: allow leeway for frames
         if ready_to_deploy:
             if self.deploy_ready_start_time == None:

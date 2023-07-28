@@ -36,7 +36,7 @@ parser.add_argument("--deploy-ready-time", type=float, default=1,
                     help="Amount of time needed in seconds for the drone in the state where it should deploy before deploying.")
 args = parser.parse_args()
 
-TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person", "bottle" }
+TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person" }
 
 class TrackPoint:
     def __init__(self, label, confidence, bbox) -> None:
@@ -65,7 +65,7 @@ class TrackPoint:
 # Load the pre-trained SSD model
 net = cv2.dnn.readNetFromCaffe("./models/mobilenet-ssd/mobilenet-ssd.prototxt", "./models/mobilenet-ssd/mobilenet-ssd.caffemodel")
 labels = []
-with open('./models/mobilenet-ssd/labels.txt') as file:
+with open("./models/mobilenet-ssd/labels.txt") as file:
     for line in file:
         labels.append(line.strip())
 
