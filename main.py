@@ -10,7 +10,7 @@ parser.add_argument("--fov", type=int, default=80,
                     help="The vertical FOV of the camera")
 parser.add_argument("--blob-size", type=int, default=500,
                     help="How big the image that will be fed neural network will be (higher is more accurate but slower).")
-parser.add_argument("--frame-time", type=float, default=2,
+parser.add_argument("--frame-time", type=float, default=0.5,
                     help="Target time between each frame detection.")
 parser.add_argument("--min-confidence", type=float, default=0.3,
                     help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1).")
@@ -34,6 +34,8 @@ parser.add_argument("--descend-amount", type=float, default=4,
                     help="How much to descend each time the tracker point goes inside the descend/deploy range.")
 parser.add_argument("--deploy-ready-time", type=float, default=1,
                     help="Amount of time needed in seconds for the drone in the state where it should deploy before deploying.")
+parser.add_argument("--leeway-frames", type=int, default=2,
+                    help="Amount of frames allowed for dectetion to be lost before ascending/resetting deploying time.")
 args = parser.parse_args()
 
 TARGET_LABLES = { "bird", "cat", "cow", "dog", "horse", "sheep", "person" }

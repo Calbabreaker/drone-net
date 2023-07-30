@@ -15,6 +15,7 @@ class Drone:
         self.times_within_range = 0
         self.args = args
         self.deploy_ready_start_time = None
+        self.frames_since_lost = 0
 
         self.vehicle = dronekit.connect(args.address)
         print(f"INFO: Connected to {args.address}")
@@ -23,12 +24,12 @@ class Drone:
         # Take off to safe altitude
         if self.vehicle.mode.name != "GUIDED":
             self.takeoff()
-            self.reset_target_position()
         else:
             self.reset_target_position()
             self.set_altitude(self.args.max_altitude, True)
 
         self.wait_reach_alitude(self.args.max_altitude, True)
+        self.reset_target_position()
         print("INFO: Target altitude reached!")
 
     def takeoff(self):
@@ -87,7 +88,7 @@ class Drone:
         if not self.is_facing_down():
             return
 
-        print(f"TRACE: Moving by ({x_dist:.2f}m, {y_dist:.2f}m)")
+        print(f"TRACE: Moving by {x_dist:.2f}m, {y_dist:.2f}m")
 
         # Convert XY coordinates to body-relative coordinates (multiply by rotation matrix)
         heading_rad = math.radians(self.vehicle.heading)
@@ -108,9 +109,14 @@ class Drone:
     # Returns whether the target_point and altitude is in the deploy range
     def calc_move(self, screen_center):
         if self.target_point == None:
-            print("WARN: Lost target point. Ascending...")
-            self.set_altitude(self.get_altitude() + self.args.ascend_amount)
+            self.frames_since_lost += 1
+            if self.frames_since_lost > self.args.leeway_frames:
+                print("WARN: Lost target point. Ascending...")
+                self.set_altitude(self.get_altitude() + self.args.ascend_amount)
+                self.deploy_ready_start_time = None
             return False
+
+        self.frames_since_lost = 0
             
         (tx, ty) = self.target_point.center
         (sx, sy) = screen_center
@@ -149,21 +155,18 @@ class Drone:
         # Gets the closest point to the center
         self.target_point = get_closest_point(center, tracker_points)
 
-        ready_to_deploy = self.calc_move(center)
+        self.ready_to_deploy = self.calc_move(center)
 
         # If the target_point is within range for a number of consecutive seconds, DEPLOY
-        # TODO: allow leeway for frames
-        if ready_to_deploy:
+        if self.ready_to_deploy:
             if self.deploy_ready_start_time == None:
                 self.deploy_ready_start_time = time.time()
 
             time_since_deploy_ready = time.time() - self.deploy_ready_start_time 
             print(f"INFO: Ready to deploy for {time_since_deploy_ready:.2f}/{self.args.deploy_ready_time} seconds")
 
-            if time_since_deploy_ready > self.args.deploy_ready_time:
+            if time_since_deploy_ready >= self.args.deploy_ready_time:
                 self.deploy_net()
-        else:
-            self.deploy_ready_start_time = None
 
     def get_descend_range_size(self, width, height):
         size = min(width, height)
@@ -183,9 +186,9 @@ class Drone:
             print("TRACE: Returning to home location (RTL mode)...")
             time.sleep(1)
 
-        print("Drone succesfully landed")
+        print("INFO: Drone succesfully landed")
         self.vehicle.close()
-        print("Program finished exiting")
+        print("INFO: Program finished exiting")
         os._exit(0)
 
 def get_distance(center_a, center_b):
