@@ -10,7 +10,7 @@ parser.add_argument("--fov", type=int, default=80,
                     help="The vertical FOV of the camera")
 parser.add_argument("--blob-size", type=int, default=500,
                     help="How big the image that will be fed neural network will be (higher is more accurate but slower).")
-parser.add_argument("--frame-time", type=float, default=0.5,
+parser.add_argument("--frame-time", type=float, default=1,
                     help="Target time between each frame detection.")
 parser.add_argument("--min-confidence", type=float, default=0.3,
                     help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1).")
@@ -120,22 +120,22 @@ def track_thread():
     drone.start()
     time.sleep(0.1)
 
-    last_frame_time = time.time()
-
     if current_frame is None:
-        print("WARN: No frame obtained from video, dectecting will not execute")
+        print("WARN: No frame obtained from video, detecting will not execute")
 
     while not current_frame is None:
-        center = get_center(current_frame)
-        tracker_points = detect(current_frame)
-        drone.control_drone(tracker_points, center)
+        last_frame_time = time.time()
+
+        if drone.is_facing_down():
+            center = get_center(current_frame)
+            tracker_points = detect(current_frame)
+            drone.control_drone(tracker_points, center)
 
         frame_time = time.time() - last_frame_time
         print(f"TRACE: Frame took {frame_time} seconds")
         if frame_time < args.frame_time:
             # Wait remaining amount of time for the target frame_time
             time.sleep(args.frame_time - frame_time)
-        last_frame_time = time.time()
 
 def track_video(video):
     global current_frame
