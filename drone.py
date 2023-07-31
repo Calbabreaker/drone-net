@@ -26,7 +26,7 @@ class Drone:
             self.takeoff()
         else:
             self.reset_target_position()
-            self.set_altitude(self.args.max_altitude)
+            self.set_altitude(self.args.max_altitude, True)
 
         self.wait_reach_alitude(self.args.max_altitude, True)
         self.reset_target_position()
@@ -75,13 +75,19 @@ class Drone:
             return False
 
     # Move the drone to specified altitude
-    def set_altitude(self, target_altitude):
+    def set_altitude(self, target_altitude, force=False):
+        if not self.is_facing_down() and not force:
+            return
+
         self.target_position.alt = np.clip(float(target_altitude), self.args.deploy_altitude, self.args.max_altitude)
         print(f"TRACE: Altitude changing to {self.target_position.alt}m")
         self.vehicle.simple_goto(self.target_position)
 
     # Move drone to the target location x meters ahead of the current position
     def move_by(self, x_dist, y_dist):
+        if not self.is_facing_down():
+            return
+
         print(f"TRACE: Moving by {x_dist:.2f}m, {y_dist:.2f}m")
 
         # Convert XY coordinates to body-relative coordinates (multiply by rotation matrix)
@@ -136,12 +142,14 @@ class Drone:
 
         distance = get_distance(self.target_point.center, screen_center)
 
-        if distance < self.get_descend_range_size(width, height):
+        if distance < self.get_descend_range_size(width, height) and self.is_facing_down():
             if self.get_altitude() > self.args.deploy_altitude * 1.1:
                 print("INFO: Within range decending...")
                 self.set_altitude(self.get_altitude() - self.args.descend_amount)
             else:
                 return True
+        else:
+            self.deploy_ready_start_time = None
 
         return False
 

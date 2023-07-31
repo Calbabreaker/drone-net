@@ -95,7 +95,7 @@ def detect(img):
     net.setInput(blob)
     detections = net.forward()
 
-    # detections is a 4 dimensional array where [0, 0, i, ...] is the i'th dectection of the first channel of the first image
+    # detections is a 4 dimensional array where [0, 0, i, ...] is the i'th detection of the first channel of the first image
     # Loop over detections
     for i in range(detections.shape[2]):
         confidence = detections[0, 0, i, 2]
@@ -126,10 +126,9 @@ def track_thread():
     while not current_frame is None:
         last_frame_time = time.time()
 
-        if drone.is_facing_down():
-            center = get_center(current_frame)
-            tracker_points = detect(current_frame)
-            drone.control_drone(tracker_points, center)
+        center = get_center(current_frame)
+        tracker_points = detect(current_frame)
+        drone.control_drone(tracker_points, center)
 
         frame_time = time.time() - last_frame_time
         print(f"TRACE: Frame took {frame_time} seconds")
