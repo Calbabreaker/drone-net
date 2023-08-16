@@ -16,6 +16,8 @@ parser.add_argument("--min-confidence", type=float, default=0.3,
                     help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1).")
 parser.add_argument("--visualize", action=argparse.BooleanOptionalAction,
                     help="Whether or not to visualize the tracking points.")
+parser.add_argument("--save-visualize", action=argparse.BooleanOptionalAction,
+                    help="Whether or not to save the visualization of the tracking points to output.avi.")
 parser.add_argument("--video", required=True,
                     help="The index of the video camera (/dev/videoX) or a video file.")
 parser.add_argument("--servo-pin", type=int, required=True,
@@ -71,12 +73,10 @@ with open("./models/mobilenet-ssd/labels.txt") as file:
     for line in file:
         labels.append(line.strip())
 
-# net = cv2.dnn.readNetFromCaffe("./public/ssd300/deploy.prototxt", "./public/ssd300/VGG_VOC0712Plus_SSD_300x300_ft_iter_160000.caffemodel")
-# labels = open("./public/ssd300/labels.txt", "r").readlines()
-
-# video=cv2.VideoCapture("test.webm")
 video_path = int(args.video) if args.video.isdigit() else args.video
-video=cv2.VideoCapture(video_path)
+video = cv2.VideoCapture(video_path)
+if args.save_visualize:
+    video_out = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30, (640,480))
 
 def get_center(frame):
     # frame.shape[1] is width, frame.shape[0] is height 
@@ -141,8 +141,8 @@ def track_video(video):
     global tracker_points
 
     # We need a different since the drone controller uses blocks the thread
-    thread = threading.Thread(target=track_thread)
-    thread.start()
+    # thread = threading.Thread(target=track_thread)
+    # thread.start()
 
     while cv2.waitKey(20) != ord('q'):
         # Get frame from video feed
@@ -152,7 +152,7 @@ def track_video(video):
 
         current_frame = frame
 
-        if args.visualize:
+        if args.visualize or args.save_visualize:
             visualize_points(frame)
 
     current_frame = None
@@ -171,7 +171,10 @@ def visualize_points(frame):
     descend_range_size = drone.get_descend_range_size(frame.shape[1],frame.shape[0])
     cv2.circle(frame, center, descend_range_size, color=(0, 255 if drone.is_facing_down() else 80, 0), thickness=2)
 
-    cv2.imshow("Image", frame)
+    if args.save_visualize:
+        video_out.write(frame)
+    if args.visualize:
+        cv2.imshow("Image", frame)
 
 if __name__ == "__main__":
     track_video(video)
