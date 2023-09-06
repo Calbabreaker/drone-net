@@ -16,6 +16,7 @@ class Drone:
         self.args = args
         self.deploy_ready_start_time = None
         self.frames_since_lost = 0
+        self.deployed = False
 
         self.vehicle = dronekit.connect(args.address)
         print(f"INFO: Connected to {args.address}")
@@ -190,8 +191,7 @@ class Drone:
 
         print("INFO: Drone succesfully landed")
         self.vehicle.close()
-        print("INFO: Program finished exiting")
-        os._exit(0)
+        self.deployed = True
 
 def get_distance(center_a, center_b):
     (x1, y1) = center_a

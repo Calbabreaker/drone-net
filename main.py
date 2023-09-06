@@ -123,7 +123,7 @@ def track_thread():
     if current_frame is None:
         print("WARN: No frame obtained from video, detecting will not execute")
 
-    while not current_frame is None:
+    while current_frame != None and not drone.deployed:
         last_frame_time = time.time()
 
         center = get_center(current_frame)
@@ -139,15 +139,17 @@ def track_thread():
 def track_video(video):
     global current_frame
     global tracker_points
+    global should_exit
 
     # We need a different since the drone controller uses blocks the thread
-    # thread = threading.Thread(target=track_thread)
-    # thread.start()
+    thread = threading.Thread(target=track_thread)
+    thread.start()
 
-    while cv2.waitKey(20) != ord('q'):
+    while not drone.deployed:
         # Get frame from video feed
         ok,frame=video.read()
         if not ok: 
+            should_exit = True
             break
 
         current_frame = frame
@@ -155,8 +157,10 @@ def track_video(video):
         if args.visualize or args.save_visualize:
             visualize_points(frame)
 
-    current_frame = None
+        time.sleep(0.02)
+
     thread.join()
+    print("INFO: Program finished exiting")
 
 def visualize_points(frame):
     # Draw all tracker points for debugging
