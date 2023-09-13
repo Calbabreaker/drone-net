@@ -14,8 +14,8 @@ parser.add_argument("--frame-time", type=float, default=1,
                     help="Target time between each frame detection.")
 parser.add_argument("--min-confidence", type=float, default=0.3,
                     help="The minimum confidence that is allowed for the drone to move to (number between 0 and 1).")
-parser.add_argument("--visualize", action=argparse.BooleanOptionalAction,
-                    help="Whether or not to visualize the tracking points.")
+parser.add_argument("--show-visualize", action=argparse.BooleanOptionalAction,
+                    help="Whether or not to show the the tracking points in a OpenCV window.")
 parser.add_argument("--save-visualize", action=argparse.BooleanOptionalAction,
                     help="Whether or not to save the visualization of the tracking points to output.avi.")
 parser.add_argument("--video", required=True,
@@ -76,7 +76,8 @@ with open("./models/mobilenet-ssd/labels.txt") as file:
 video_path = int(args.video) if args.video.isdigit() else args.video
 video = cv2.VideoCapture(video_path)
 if args.save_visualize:
-    video_out = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30, (640,480))
+    dimensions = (int(video.get(3)),int(video.get(4)))
+    video_out = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30, dimensions)
 
 def get_center(frame):
     # frame.shape[1] is width, frame.shape[0] is height 
@@ -136,7 +137,7 @@ def track_thread():
             # Wait remaining amount of time for the target frame_time
             time.sleep(args.frame_time - frame_time)
 
-def track_video(video):
+def track_video():
     global current_frame
     global tracker_points
     global should_exit
@@ -154,7 +155,7 @@ def track_video(video):
 
         current_frame = frame
 
-        if args.visualize or args.save_visualize:
+        if args.show_visualize or args.save_visualize:
             visualize_points(frame)
 
         time.sleep(0.02)
@@ -177,8 +178,7 @@ def visualize_points(frame):
 
     if args.save_visualize:
         video_out.write(frame)
-    if args.visualize:
+    if args.show_visualize:
         cv2.imshow("Image", frame)
 
-if __name__ == "__main__":
-    track_video(video)
+track_video()
