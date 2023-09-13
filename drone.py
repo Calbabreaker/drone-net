@@ -2,7 +2,6 @@ import math
 import numpy as np
 import gpiozero 
 import time
-import os
 import dronekit
 import copy
 
@@ -124,8 +123,8 @@ class Drone:
         (width, height) = np.multiply(screen_center, 2)
 
         # Figure angluar extent for the distance (how much that distance convers in degrees)
-        angle_x = (tx - sx) * (self.args.fov / 2 / width)
-        angle_y = (ty - sy) * (self.args.fov / 2 / height)
+        angle_x = (tx - sx) * (self.args.fov / width)
+        angle_y = (ty - sy) * (self.args.fov / height)
 
         #  a = altitude
         #  θ = angle

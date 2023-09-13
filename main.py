@@ -6,7 +6,7 @@ import numpy as np
 import threading
 
 parser = argparse.ArgumentParser(description="Drone controller for detecting animals and dropping nets on them.")
-parser.add_argument("--fov", type=int, default=80,
+parser.add_argument("--fov", type=int, default=45,
                     help="The vertical FOV of the camera")
 parser.add_argument("--blob-size", type=int, default=500,
                     help="How big the image that will be fed neural network will be (higher is more accurate but slower).")
@@ -124,7 +124,7 @@ def track_thread():
     if current_frame is None:
         print("WARN: No frame obtained from video, detecting will not execute")
 
-    while current_frame != None and not drone.deployed:
+    while current_frame is not None and not drone.deployed:
         last_frame_time = time.time()
 
         center = get_center(current_frame)
@@ -140,17 +140,15 @@ def track_thread():
 def track_video():
     global current_frame
     global tracker_points
-    global should_exit
 
     # We need a different since the drone controller uses blocks the thread
     thread = threading.Thread(target=track_thread)
     thread.start()
 
-    while not drone.deployed:
+    while not drone.deployed and cv2.waitKey(20) != ord("q"):
         # Get frame from video feed
         ok,frame=video.read()
         if not ok: 
-            should_exit = True
             break
 
         current_frame = frame
@@ -158,8 +156,7 @@ def track_video():
         if args.show_visualize or args.save_visualize:
             visualize_points(frame)
 
-        time.sleep(0.02)
-
+    current_frame = None
     thread.join()
     print("INFO: Program finished exiting")
 
